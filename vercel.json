@@ -2,15 +2,6 @@
     "version": 2,
     "builds": [
         {
-            "src": "backend/src/main.ts",
-            "use": "@vercel/node",
-            "config": {
-                "includeFiles": [
-                    "backend/prisma/schema.prisma"
-                ]
-            }
-        },
-        {
             "src": "package.json",
             "use": "@vercel/static-build",
             "config": {
@@ -20,21 +11,11 @@
     ],
     "routes": [
         {
-            "src": "/api/(.*)",
-            "dest": "backend/src/main.ts"
-        },
-        {
             "handle": "filesystem"
         },
         {
             "src": "/(.*)",
             "dest": "/index.html"
         }
-    ],
-    "env": {
-        "DATABASE_URL": "@database_url",
-        "JWT_SECRET": "@jwt_secret",
-        "GEMINI_API_KEY": "@gemini_api_key",
-        "FRONTEND_URL": "@frontend_url"
-    }
+    ]
 }
