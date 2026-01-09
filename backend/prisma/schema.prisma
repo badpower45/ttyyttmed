@@ -1,0 +1,204 @@
+// MediCore CMS - Complete Database Schema
+// PostgreSQL Database with Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// ========================================
+// MODELS
+// ========================================
+
+// Base User Model - Authentication
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(PATIENT)
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patient Patient?
+  doctor  Doctor?
+
+  @@index([email])
+  @@map("users")
+}
+
+// Patient Extended Profile
+model Patient {
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  dateOfBirth  DateTime?
+  gender       Gender?
+  address      String?
+  bloodType    String?
+  allergies    String[] // Array of allergies
+  chronicDiseases String[] // Array of chronic conditions
+  emergencyContact String?
+  emergencyPhone   String?
+  insuranceInfo    String?
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments      Appointment[]
+  medicalRecords    MedicalRecord[]
+  patientPortalAccess PatientPortal[]
+
+  @@index([userId])
+  @@map("patients")
+}
+
+// Doctor Profile
+model Doctor {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  specialization String
+  licenseNumber  String   @unique
+  experience     Int? // Years of experience
+  bio            String?
+  education      String?
+  schedule       Json? // Working hours schedule (JSON format)
+  consultationFee Decimal? @db.Decimal(10, 2)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments    Appointment[]
+  medicalRecords  MedicalRecord[]
+
+  @@index([userId])
+  @@index([specialization])
+  @@map("doctors")
+}
+
+// Appointment Booking System
+model Appointment {
+  id          String            @id @default(uuid())
+  patientId   String
+  doctorId    String
+  date        DateTime
+  timeSlot    String // e.g., "09:00-09:30"
+  reason      String?
+  status      AppointmentStatus @default(PENDING)
+  notes       String?
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  patient     Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([date])
+  @@index([status])
+  @@map("appointments")
+}
+
+// Medical Records (Created by Doctors)
+model MedicalRecord {
+  id            String   @id @default(uuid())
+  patientId     String
+  doctorId      String
+  visitDate     DateTime @default(now())
+  
+  // Medical Details
+  symptoms      String
+  diagnosis     String
+  vitalSigns    Json? // Blood pressure, temperature, etc.
+  treatmentPlan String?
+  notes         String?
+  attachments   String[] // URLs to uploaded files
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor        Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  prescriptions Prescription[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([visitDate])
+  @@map("medical_records")
+}
+
+// Prescription (Linked to Medical Records)
+model Prescription {
+  id              String   @id @default(uuid())
+  medicalRecordId String
+  
+  // Medication Details
+  medicationName  String
+  dosage          String
+  frequency       String // e.g., "3 times a day"
+  duration        String // e.g., "7 days"
+  instructions    String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  @@index([medicalRecordId])
+  @@map("prescriptions")
+}
+
+// Patient Portal - Secure Public Access
+model PatientPortal {
+  id          String   @id @default(uuid())
+  patientId   String
+  accessToken String   @unique // Secure token for public access
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([accessToken])
+  @@index([patientId])
+  @@map("patient_portal")
+}
